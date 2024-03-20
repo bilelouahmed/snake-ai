@@ -4,8 +4,9 @@ from collections import deque
 import random
 import torch
 from model import *
+import threading
 
-MAX_MEMORY = 100000
+MAX_MEMORY = 10000
 BATCH_SIZE = 1000
 LR = 0.001
 
@@ -109,19 +110,20 @@ class Agent():
     def increment_game_iteration(self):
         self.game_iteration += 1
 
-    def update_epsilon(self):
-        self.epsilon = max(0.05, self.epsilon - 2*10**-4)
+    def update_epsilon(self, decrement:float=2.0*10**-4, sup_epsilon:float=0.05):
+        self.epsilon = max(sup_epsilon, self.epsilon - decrement)
 
 
-def train(batch_training=True):
+def train(display_plots=True):
     record = 0
     agent = Agent(epsilon=0.4, gamma=0.9)
 
-    if not batch_training:
+    if not display_plots:
         from utils import plot
 
         scores, running_mean_scores, epsilons = [], [], []
         game_instance = Snake()
+
     else:
         game_instance = Snake(display_game=False)
 
@@ -145,7 +147,7 @@ def train(batch_training=True):
                 record = score
                 agent.model.save(filename=f"record_{score}")
 
-            if not batch_training:
+            if not display_plots:
 
                 scores.append(score)
                 running_mean_scores.append(np.mean(scores[-100:]))
@@ -158,5 +160,66 @@ def train(batch_training=True):
             agent.update_epsilon()
 
 
+def multi_training(agent_epsilon:int=0.4, agent_gamma:int=0.9, epochs:int=500, workers:int=5, best_games_ratio:float=0.25):
+    agent = Agent(epsilon=agent_epsilon, gamma=agent_gamma)
+    lock = threading.Lock()
+
+    def games_repetition(max_submemory:int=int(MAX_MEMORY/workers)):
+        nonlocal main_games
+
+        games = deque(max_submemory)
+        game_instance = Snake(display_game=False)
+        hits = []
+
+        while len(games) < 0.9 * (max_submemory): # à revoir peut-être, peut-être à remplacer par BATCH_SIZE
+            state_old = agent.get_state(game_instance)
+
+            move = agent.predict_movement(state_old)
+
+            reward, game_over, score = game_instance.play_step(move)
+            state_new = agent.get_state(game_instance)
+
+            hits.append((state_old, move, reward, state_new, game_over))
+
+            if game_over:
+                for state_old, move, reward, state_new, game_over in hits:
+                    games.append((score, state_old, move, reward, state_new, game_over))
+
+                hits = []
+                
+                game_instance.reset_game()
+
+        print("Thread finished : length", len(games))
+
+        with lock:
+            main_games.extend(games)
+
+
+    for epoch in range(epochs):
+        main_games = []
+
+        threads = []
+        for _ in range(workers):
+            t = threading.Thread(target=games_repetition, args=None)
+            t.start()
+            threads.append(t)
+
+        for t in threads:
+            t.join()
+
+        main_games.sort(key=lambda x: x[0], reverse=True)
+        top_games = main_games[:int(best_games_ratio*len(main_games))]
+        print("Length Main Games", len(main_games))
+        print("Length Top Games", len(top_games))
+        print("Top Games", top_games)
+
+        
+
+        # faire un entraînement et réitérer
+
+        #agent.increment_game_iteration()
+        #agent.update_epsilon()
+
+
 if __name__ == '__main__':
-    train(batch_training=False)
+    multi_training(agent_epsilon=0.4, agent_gamma=0.9, epochs=1, workers=2, best_games_ratio=0.01)
