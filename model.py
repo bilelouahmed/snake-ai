@@ -23,7 +23,7 @@ class Net(nn.Module):
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size),
-            nn.Softmax(dim=1),
+            nn.Softmax(dim=0),
         )
         if model_file_path:
             self.load(model_file_path)
