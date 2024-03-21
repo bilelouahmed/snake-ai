@@ -23,7 +23,7 @@ def rotate_direction(direction: int, rotation: int):
     return clock_wise[next_idx]
 
 
-def save_logs(log_file_name: str = "logs.csv", *args):
+def save_logs(log_file_name: str = "model/logs.csv", *args):
     with open(log_file_name, "a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(args)
