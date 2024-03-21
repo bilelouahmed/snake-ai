@@ -1,33 +1,26 @@
-import matplotlib.pyplot as plt
+import csv
+from enum import Enum
 
-fig, ax1 = plt.subplots()
-ax2 = ax1.twinx()
-plt.ion()
+class Direction(Enum):
+    RIGHT = 1
+    LEFT = 2
+    UP = 3
+    DOWN = 4
 
-def plot(gamma:float, scores:list, mean_scores:list, epsilons:list):
-    ax1.clear()
-    ax2.clear()
-    
-    ax1.set_title(f"Snake Training - Gamma : {gamma}")
-    ax1.set_xlabel('Number of games')
-    ax1.set_ylabel('Score')
-    ax1.plot(scores, label='Scores', color='blue')
-    ax1.plot(mean_scores, label='Mean Scores', color='orange')
-    ax1.set_ylim(ymin=0)
-    ax1.text(len(scores)-1, scores[-1], str(scores[-1]))
-    ax1.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
+def rotate_direction(direction, rotation:int):
+    clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+    index_direction = clock_wise.index(direction)
 
-    ax2.set_ylabel('Epsilon', )
-    ax2.plot(epsilons, label='Epsilons', color='green')
-    ax2.yaxis.set_label_position('right')
-    ax2.tick_params(axis='y')
+    if rotation == 1: # clockwise
+        next_idx = (index_direction + 1) % 4
+    elif rotation == -1: # counterclockwise
+        next_idx = (index_direction - 1) % 4
+    else:
+        raise ValueError("Rotation must be '1' (clockwise) or '-1' (counterclockwise).")
 
-    
-    ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x*100:.2f}%"))
+    return clock_wise[next_idx]
 
-    ax1.legend(loc='upper left')
-    ax2.legend(loc='upper right')
-    
-    plt.draw()
-    plt.pause(0.2)
-
+def save_logs(log_file_name:str="logs.csv", *args):
+    with open(log_file_name, 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(args)
