@@ -1,7 +1,7 @@
+from utils import *
 import pygame
 import random
 from collections import namedtuple
-from enum import Enum
 import numpy as np
 
 SCORE_FONT_SIZE = 25
@@ -16,16 +16,10 @@ GREEN = (50,205,50)
 BLUE = (116, 208, 241)
 
 DEFAULT_REWARDS = {
-    "GAME_OVER": -10,
+    "GAME_OVER": -100,
     "FOOD": 10,
     "NONE": 0
 }
-
-class Direction(Enum):
-    RIGHT = 1
-    LEFT = 2
-    UP = 3
-    DOWN = 4
 
 Point = namedtuple('Point', 'x, y')
 
@@ -52,30 +46,23 @@ class Snake():
 
         self.reset_game()
 
-
     def generate_food(self):
-        x_food = round(random.randrange(0, self.width - self.block_size) / self.block_size) * self.block_size
-        y_food = round(random.randrange(0, self.height - self.block_size) / self.block_size) * self.block_size
-        self.food = Point(x_food, y_food)
+        possible_positions = []
 
+        for x in range(0, self.width - self.block_size, self.block_size):
+            for y in range(0, self.height - self.block_size, self.block_size):
+                if Point(x, y) not in self.snake:
+                    possible_positions.append(Point(x, y))
+        
+        self.food = random.choice(possible_positions)
 
     def move(self, action):
-        x = self.head.x
-        y = self.head.y
+        x, y = self.head.x, self.head.y
 
-        clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
-        index_direction = clock_wise.index(self.direction)
-
-        if np.array_equal(action, [1, 0, 0]): # Go straight
-            new_dir = clock_wise[index_direction] 
-        elif np.array_equal(action, [0, 1, 0]): # Turn right : RIGHT -> DOWN -> LEFT -> UP
-            next_idx = (index_direction + 1) % 4
-            new_dir = clock_wise[next_idx] 
-        else:
-            next_idx = (index_direction - 1) % 4
-            new_dir = clock_wise[next_idx] # Turn left : RIGHT -> UP -> LEFT -> DOWN
-
-        self.direction = new_dir
+        if np.array_equal(action, [0, 1, 0]):  # Turn right
+            self.direction = rotate_direction(self.direction, 1)
+        else:  # Turn left
+            self.direction = rotate_direction(self.direction, -1)
 
         if self.direction == Direction.RIGHT:
             x += self.block_size
@@ -88,17 +75,14 @@ class Snake():
 
         self.head = Point(x, y)
 
-
     def check_collision(self, head:Point=None):
         if head == None:
             head = self.head
-        
         if head.x >= self.width or head.x < 0 or head.y >= self.height or head.y < 0:
             return True
         if head in self.snake[:-1]:
             return True
         return False
-
 
     def play_step(self, action):
         self.iteration += 1
@@ -126,7 +110,6 @@ class Snake():
 
         return reward, self.game_over, self.get_score()
 
-
     def routine(self):
         self.game.fill(BLUE)
         self.draw_snake(self.snake)
@@ -135,48 +118,6 @@ class Snake():
         pygame.display.update()
 
         self.clock.tick(self.game_speed)
-
-
-    # Useless for an agent -> to remove later
-    def game_loop(self):
-        self.game_close = False
-
-        self.reset_game()
-
-        while not self.game_close:
-            if self.display_game:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        self.game_close = True
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_q:
-                            self.game_close = True
-            if not self.game_over:
-                self.play_step()
-            else:
-                self.reset_game()
-        
-        if self.display_game:
-            pygame.quit()
-
-        quit()
-
-
-    # Useless for a bot -> to remove later
-    def game_over_screen(self):
-        self.game.fill(BLUE)
-        self.print_game_over("Game Over ! Play again (CTRL+C) / Quit (CTRL+Q)", RED)
-        self.print_score()
-        pygame.display.update()
-        
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_q:
-                    self.game_over = True
-                    self.game_close = False
-                elif event.key == pygame.K_c:
-                    self.reset_game()
-
 
     def reset_game(self):
         self.game_over = False
@@ -190,23 +131,12 @@ class Snake():
 
         self.generate_food()
 
-
     def get_score(self):
         return self.snake_length - 1
-
 
     def print_score(self):
         value = self.score_font.render("Score : " + str(self.get_score()), True, BLACK)
         self.game.blit(value, [0, 0])
-
-
-    def print_game_over(self, msg, color):
-        mesg = self.game_close_style.render(msg, True, color)
-        text_width, text_height = self.game_close_style.size(msg)
-        x = (self.width - text_width) / 2
-        y = (self.height - text_height) / 2
-        self.game.blit(mesg, (x, y))
-
 
     def draw_snake(self, snake):
         for x in snake:

@@ -114,8 +114,7 @@ def multi_training(agent:Agent, epochs:int=500, workers:int=5, best_games_ratio:
         for t in threads:
             t.join()
 
-        agent.memory = sorted(agent.memory, key=lambda x: x[0], reverse=True)
-        agent.memory = agent.memory[:int(best_games_ratio*len(agent.memory))]
+        agent.memory = sorted(agent.memory, key=lambda x: x[0], reverse=True)[:int(best_games_ratio * len(agent.memory))]
 
         agent.train_long_memory()
 

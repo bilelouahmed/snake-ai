@@ -4,26 +4,35 @@ from collections import deque
 import random
 
 MAX_MEMORY = 100000
-BATCH_SIZE = 1000
+BATCH_SIZE = 50
 LR = 0.001
 
 class Agent():
-    def __init__(self, epsilon:float=0.5, gamma:float=0.3, model_hidden_layers:int=128, model_file_path:str=None):
+    def __init__(self, epsilon:float=0.5, gamma:float=0.3, model_hidden_layers:int=256, model_file_path:str=None):
         self.epsilon = epsilon
         self.gamma = gamma # Discount Rate (potential future reward implied by decision)
         
         self.game_iteration = 1
-        self.memory = deque(maxlen=MAX_MEMORY)
+        self.memory = []
         
-        self.model = Net(11, model_hidden_layers, 3, model_file_path).to(device)
+        self.model = Net(16, model_hidden_layers, 3, model_file_path).to(device)
         self.training = QLearning(self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game:Snake):
-        head = game.snake[0]
+        head = game.head
+
         point_l = Point(head.x - game.block_size, head.y)
         point_r = Point(head.x + game.block_size, head.y)
         point_u = Point(head.x, head.y - game.block_size)
         point_d = Point(head.x, head.y + game.block_size)
+        point_ll = Point(head.x - 2*game.block_size, head.y)
+        point_rr = Point (head.x + 2*game.block_size, head.y)
+        point_uu = Point(head.x, head.y - 2*game.block_size)
+        point_dd = Point(head.x, head.y + 2*game.block_size)
+        point_lu = Point(head.x - game.block_size, head.y - game.block_size)
+        point_ld = Point(head.x - game.block_size, head.y + game.block_size)
+        point_ru = Point(head.x + game.block_size, head.y - game.block_size)
+        point_rd = Point(head.x + game.block_size, head.y + game.block_size)
         
         dir_l = game.direction == Direction.LEFT
         dir_r = game.direction == Direction.RIGHT
@@ -32,34 +41,52 @@ class Agent():
 
         state = [
             # Danger straight
+            (dir_u and game.check_collision(point_u)) or
             (dir_r and game.check_collision(point_r)) or 
-            (dir_l and game.check_collision(point_l)) or 
-            (dir_u and game.check_collision(point_u)) or 
-            (dir_d and game.check_collision(point_d)),
+            (dir_d and game.check_collision(point_d)) or
+            (dir_l and game.check_collision(point_l)),
+
+            # Danger double straight
+            (dir_u and game.check_collision(point_uu))
+            (dir_r and game.check_collision(point_rr)) or
+            (dir_d and game.check_collision(point_dd)) or
+            (dir_l and game.check_collision(point_ll)),
 
             # Danger right
             (dir_u and game.check_collision(point_r)) or 
+            (dir_r and game.check_collision(point_d)) or
             (dir_d and game.check_collision(point_l)) or 
-            (dir_l and game.check_collision(point_u)) or 
-            (dir_r and game.check_collision(point_d)),
+            (dir_l and game.check_collision(point_u)),
 
             # Danger left
-            (dir_d and game.check_collision(point_r)) or 
-            (dir_u and game.check_collision(point_l)) or 
+            (dir_u and game.check_collision(point_l)) or
             (dir_r and game.check_collision(point_u)) or 
+            (dir_d and game.check_collision(point_r)) or 
             (dir_l and game.check_collision(point_d)),
 
-            # Danger straight left
+            # Danger behind left
+            (dir_u and game.check_collision(point_ld)) or
+            (dir_r and game.check_collision(point_lu)) or
+            (dir_d and game.check_collision(point_ru)) or
+            (dir_l and game.check_collision(point_rd)),
 
-            # Danger straight right
+            # Danger behind right
+            (dir_u and game.check_collision(point_rd)) or
+            (dir_r and game.check_collision(point_ld)) or
+            (dir_d and game.check_collision(point_lu)) or
+            (dir_l and game.check_collision(point_ru)),
 
-            # Danger right right
+            # Danger ahead left
+            (dir_u and game.check_collision(point_lu)) or
+            (dir_r and game.check_collision(point_ru)) or
+            (dir_d and game.check_collision(point_rd)) or
+            (dir_l and game.check_collision(point_ld)),
 
-            # Danger right left
-
-            # Danger left right
-
-            # Danger left left
+            # Danger ahead right
+            (dir_u and game.check_collision(point_ru)) or
+            (dir_r and game.check_collision(point_rd)) or
+            (dir_d and game.check_collision(point_ld)) or
+            (dir_l and game.check_collision(point_lu)),
             
             # Move direction
             dir_l,
@@ -114,39 +141,4 @@ class Agent():
         self.epsilon = max(sup_epsilon, self.epsilon - decrement)
 
     def clear_memory(self):
-        self.memory = deque(maxlen=MAX_MEMORY)
-
-
-def inference(model_file_path:str=None):
-    from plot import plot
-
-    agent = Agent(model_file_path=model_file_path)
-    game_instance = Snake(display_game=True)
-
-    record = 0
-    
-    scores, running_mean_scores = [], []
-
-    while True:
-        state_old = agent.get_state(game_instance)
-
-        final_move = agent.predict_movement(state_old, disable_randomness=True)
-
-        reward, game_over, score = game_instance.play_step(final_move)
-        state_new = agent.get_state(game_instance)
-
-        if game_over:
-            game_instance.reset_game()
-
-            if score > record:
-                record = score
-
-            scores.append(score)
-            running_mean_scores.append(np.mean(scores[-100:]))
-            plot(agent.gamma, scores, running_mean_scores)
-
-            print(f"Game : {agent.game_iteration} - Score : {score} - Record : {record}")
-
-
-if __name__ == "__main__":
-    inference(model_file_path="./model/model_record_16")
+        self.memory = []
