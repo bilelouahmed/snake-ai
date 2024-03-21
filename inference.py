@@ -1,11 +1,13 @@
 from agent import *
+import argparse
 from plot import plot
 
-def inference(agent:Agent):
+
+def inference(agent: Agent):
     game_instance = Snake(display_game=True)
 
     record = 0
-    
+
     scores, running_mean_scores = [], []
 
     while True:
@@ -26,9 +28,22 @@ def inference(agent:Agent):
             running_mean_scores.append(np.mean(scores[-100:]))
             plot(agent.gamma, scores, running_mean_scores)
 
-            print(f"Game : {agent.game_iteration} - Score : {score} - Record : {record}")
+            print(
+                f"Game : {agent.game_iteration} - Score : {score} - Record : {record}"
+            )
 
 
 if __name__ == "__main__":
-    agent = Agent(model_file_path=None)
+    parser = argparse.ArgumentParser(
+        description="Run inference with a trained Snake AI model."
+    )
+    parser.add_argument(
+        "--model_file_path",
+        type=str,
+        required=True,
+        help="Path to the trained model file.",
+    )
+    args = parser.parse_args()
+
+    agent = Agent(model_file_path=args.model_file_path)
     inference(agent)

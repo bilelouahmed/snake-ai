@@ -12,36 +12,41 @@ WHITE = (255, 255, 255)
 YELLOW = (255, 255, 0)
 BLACK = (0, 0, 0)
 RED = (220, 20, 60)
-GREEN = (50,205,50)
+GREEN = (50, 205, 50)
 BLUE = (116, 208, 241)
 
-DEFAULT_REWARDS = {
-    "GAME_OVER": -100,
-    "FOOD": 10,
-    "NONE": 0
-}
+DEFAULT_REWARDS = {"GAME_OVER": -20, "FOOD": 10, "NONE": 0}
 
-Point = namedtuple('Point', 'x, y')
+Point = namedtuple("Point", "x, y")
 
-class Snake():
-    def __init__(self, width:int=600, height:int=400, rewards:dict=DEFAULT_REWARDS, display_game=True):
+
+class Snake:
+    def __init__(
+        self,
+        width: int = 600,
+        height: int = 400,
+        rewards: dict = DEFAULT_REWARDS,
+        display_game: bool = True,
+    ):
         self.width, self.height = width, height
         self.display_game = display_game
 
         if self.display_game:
             pygame.init()
             self.game = pygame.display.set_mode((self.width, self.height))
-            pygame.display.set_caption('Snake')
+            pygame.display.set_caption("Snake")
 
             self.clock = pygame.time.Clock()
 
-            self.game_close_style = pygame.font.SysFont("Courier New", GAME_OVER_FONT_SIZE, bold=True)
+            self.game_close_style = pygame.font.SysFont(
+                "Courier New", GAME_OVER_FONT_SIZE, bold=True
+            )
             self.score_font = pygame.font.SysFont("Courier New", SCORE_FONT_SIZE)
 
             self.game_speed = GAME_SPEED
 
         self.block_size = BLOCK_SIZE
-        
+
         self.rewards = rewards
 
         self.reset_game()
@@ -53,10 +58,10 @@ class Snake():
             for y in range(0, self.height - self.block_size, self.block_size):
                 if Point(x, y) not in self.snake:
                     possible_positions.append(Point(x, y))
-        
+
         self.food = random.choice(possible_positions)
 
-    def move(self, action):
+    def move(self, action: list):
         x, y = self.head.x, self.head.y
 
         if np.array_equal(action, [0, 1, 0]):  # Turn right
@@ -75,7 +80,7 @@ class Snake():
 
         self.head = Point(x, y)
 
-    def check_collision(self, head:Point=None):
+    def check_collision(self, head: Point = None):
         if head == None:
             head = self.head
         if head.x >= self.width or head.x < 0 or head.y >= self.height or head.y < 0:
@@ -84,14 +89,14 @@ class Snake():
             return True
         return False
 
-    def play_step(self, action):
+    def play_step(self, action: list):
         self.iteration += 1
 
         self.move(action)
 
         reward = self.rewards["NONE"]
 
-        if self.check_collision() or self.iteration > 100*self.snake_length:
+        if self.check_collision() or self.iteration > 100 * self.snake_length:
             reward = self.rewards["GAME_OVER"]
             self.game_over = True
             return reward, self.game_over, self.get_score()
@@ -112,9 +117,11 @@ class Snake():
 
     def routine(self):
         self.game.fill(BLUE)
-        self.draw_snake(self.snake)
+        self.draw_snake()
         self.print_score()
-        pygame.draw.rect(self.game, RED, [self.food.x, self.food.y, self.block_size, self.block_size])
+        pygame.draw.rect(
+            self.game, RED, [self.food.x, self.food.y, self.block_size, self.block_size]
+        )
         pygame.display.update()
 
         self.clock.tick(self.game_speed)
@@ -138,6 +145,8 @@ class Snake():
         value = self.score_font.render("Score : " + str(self.get_score()), True, BLACK)
         self.game.blit(value, [0, 0])
 
-    def draw_snake(self, snake):
-        for x in snake:
-            pygame.draw.rect(self.game, BLACK, [x[0], x[1], self.block_size, self.block_size])
+    def draw_snake(self):
+        for x in self.snake:
+            pygame.draw.rect(
+                self.game, BLACK, [x[0], x[1], self.block_size, self.block_size]
+            )

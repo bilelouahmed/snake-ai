@@ -6,51 +6,58 @@ import os
 device = (
     "cuda"
     if torch.cuda.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else "cpu"
+    else "mps" if torch.backends.mps.is_available() else "cpu"
 )
 
+
 class Net(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, filepath:str=None):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        output_size: int,
+        model_file_path: str = None,
+    ):
         super().__init__()
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size),
-            nn.Softmax()
+            nn.Softmax(dim=1),
         )
-        if filepath:
-            self.load(filepath)
+        if model_file_path:
+            self.load(model_file_path)
 
     def forward(self, x):
         return self.linear_relu_stack(x)
 
-    def save(self, filename='model.pth'):
-        model_folder_path = './model'
+    def save(self, file_name: str = "model.pth"):
+        model_folder_path = "./model"
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
 
-        filename = os.path.join(model_folder_path, filename)
-        torch.save(self.state_dict(), filename)
+        file_name = os.path.join(model_folder_path, file_name)
+        torch.save(self.state_dict(), file_name)
 
-    def load(self, filepath):
-        if os.path.isfile(filepath):
-            self.load_state_dict(torch.load(filepath))
+    def load(self, file_path: str):
+        if os.path.isfile(file_path):
+            self.load_state_dict(torch.load(file_path))
             print("Model loaded.")
         else:
             print("Model file not found.")
 
 
 class QLearning:
-    def __init__(self, model, lr, gamma):
+    def __init__(self, model: Net, lr: float, gamma: float):
         self.lr = lr
         self.gamma = gamma
         self.model = model
         self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
 
-    def train_step(self, state, action, reward, next_state, game_over):
+    def train_step(
+        self, state: list, action: list, reward: int, next_state: list, game_over: bool
+    ):
         state = torch.tensor(state, dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
         action = torch.tensor(action, dtype=torch.long)
@@ -61,7 +68,7 @@ class QLearning:
             next_state = torch.unsqueeze(next_state, 0)
             action = torch.unsqueeze(action, 0)
             reward = torch.unsqueeze(reward, 0)
-            game_over = (game_over, )
+            game_over = (game_over,)
 
         prediction = self.model(state)
 
@@ -69,12 +76,14 @@ class QLearning:
             target = prediction.clone()
             for idx, go in enumerate(game_over):
                 if not go:
-                    Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx]))
+                    Q_new = reward[idx] + self.gamma * torch.max(
+                        self.model(next_state[idx])
+                    )
                 else:
                     Q_new = reward[idx]
 
                 target[idx][torch.argmax(action[idx]).item()] = Q_new
-        
+
         self.optimizer.zero_grad()
         loss = self.criterion(target, prediction)
         loss.backward()
